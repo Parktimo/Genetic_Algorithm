@@ -10,10 +10,18 @@ namespace Genetic_Algorithm
     {
         static void Main(string[] args)
         {
-            MastermindGame puzzle = new MastermindGame(4, 9);
-            MastermindAI player = new MastermindAI(puzzle);
-            player.Solve();
-            Console.ReadLine();
+            using (System.IO.StreamWriter output = new System.IO.StreamWriter("ExperimentResults.txt"))
+            {
+                for (var i = 0; i < 50; ++i)
+                {
+                    var guesses = 0;
+                    MastermindGame puzzle = new MastermindGame(4, 9);
+                    MastermindAI player = new MastermindAI(puzzle);
+                    var result = player.Solve(ref guesses);
+                    output.WriteLine("Solution {0}found{1}", result ? "" : "not ",
+                        result ? string.Format(" in {0} guesses", guesses) : "");
+                }
+            }
         }
     }
 
@@ -32,7 +40,7 @@ namespace Genetic_Algorithm
             colors = nColors;
             pegs = nPegs;
             code = generateCodes();
-            Console.WriteLine("Puzzle to solve: {0}", code);
+            //Console.WriteLine("Puzzle to solve: {0}", code);
         }
 
         public string generateCodes()
@@ -188,8 +196,9 @@ namespace Genetic_Algorithm
             puzzleBoard = puzzle;
         }
 
-        public void Solve()
+        public bool Solve(ref int nGuesses)
         {
+            var success = false;
             for (var i = 0; i < 10; ++i)
             {
                 population = generateTestPopulation();
@@ -197,10 +206,15 @@ namespace Genetic_Algorithm
                 var result = puzzleBoard.calcScore(guess);
                 var blackPegs = result/10;
                 var whitePegs = result % 10;
-                Console.WriteLine("Guess: {0} - Value:{1}{2}", guess, new string('b', blackPegs), new string('w', whitePegs));
+                //Console.WriteLine("Guess: {0} - Value:{1}{2}", guess, new string('b', blackPegs), new string('w', whitePegs));
                 if (result == 40)
+                {
+                    nGuesses = puzzleBoard.nGuesses;
+                    success = true;
                     break;
+                }
             }
+            return success;
         }
 
         private string GenerateGuess()
