@@ -119,7 +119,7 @@ namespace Genetic_Algorithm
                 return result;
             }
 
-            /// Add 2 points for each correct color/wrong position
+            /// Add 1 points for each correct color/wrong position
             for (var i = 0; i < puzzle.Length; ++i)
             {
                 for (var j = 0; j < puzzle.Length; ++j)
@@ -127,7 +127,7 @@ namespace Genetic_Algorithm
                     /// Don't count right color/position twice
                     if (i != j)
                     {
-                        if (flags1[i] != 1 && flags2[j] != 1 && puzzle[i] == code[j])
+                        if (flags1[i] != 1 && flags2[j] != 1 && puzzle[i] == guesses[row][j])
                         {
                             result[count++] = 2;
                             flags1[i] = 1;
@@ -208,6 +208,9 @@ namespace Genetic_Algorithm
             var code = "";
 
             population.Sort((x, y) => y.fitness.CompareTo(x.fitness));
+            if (population.Count > popSize)
+                population.RemoveRange(popSize - 1, population.Count - popSize);
+            Gene test = population.Find(x => x.value.Equals("7482"));
             code = population[0].value;
 
             return code;
@@ -232,6 +235,7 @@ namespace Genetic_Algorithm
             }
 
             pop.Sort((x, y) => y.fitness.CompareTo(x.fitness));
+            double test = puzzleBoard.fitnessFromPrior(new Gene("6665"));
             pop = generation(pop);
 
             return pop;
@@ -395,7 +399,13 @@ namespace Genetic_Algorithm
             var point = new Random();
             var color = new Random();
             var mutation = value.ToCharArray();
-            mutation[point.Next(nPegs)] = color.Next(nColors).ToString().ToCharArray()[0];
+            var newPoint = point.Next(nPegs);
+            var newColor = 0;
+            while (newColor == 0 || newColor == value[newPoint])
+            {
+                newColor = color.Next(1, nColors);
+            }
+            mutation[newPoint] = newColor.ToString().ToCharArray()[0];
 
             this.value = new string(mutation);
         }
