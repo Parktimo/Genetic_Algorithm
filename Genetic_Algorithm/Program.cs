@@ -202,7 +202,7 @@ namespace Genetic_Algorithm
         double Temperature = 0.2;
         static int popSize = 1000;
         static int toSelect = (int)(popSize * 0.65);
-        static int toMutate = toMutate = (int)(toSelect * 0.10);
+        static int toMutate = toMutate = (int)(toSelect * 0.1);
         static int toCross = (int)(0.35 * popSize);
 
         public MastermindAI(MastermindGame puzzle)
