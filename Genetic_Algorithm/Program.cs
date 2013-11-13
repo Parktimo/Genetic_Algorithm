@@ -1,4 +1,7 @@
-﻿using System;
+﻿#define FITNESS_PROP_SELECTION
+//#define TOURNAMENT_SELECTION
+//#define RANK_SELECTION
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,11 +18,11 @@ namespace Genetic_Algorithm
                 for (var i = 0; i < 50; ++i)
                 {
                     var guesses = 0;
-                    MastermindGame puzzle = new MastermindGame(4, 9);
+                    MastermindGame puzzle = new MastermindGame(4, 8);
                     MastermindAI player = new MastermindAI(puzzle);
                     var result = player.Solve(ref guesses);
-                    output.WriteLine("Solution {0}found{1}", result ? "" : "not ",
-                        result ? string.Format(" in {0} guesses", guesses) : "");
+                    output.WriteLine("{0}\t{1}", result, 
+                        result ? guesses.ToString() : "-");
                 }
             }
         }
@@ -57,10 +60,15 @@ namespace Genetic_Algorithm
             int score = 0;
             int count = 0;
             /// Use these to track which positions trigger points so they aren't counted twice
-            var flags1 = new int[4] { -1, -1, -1, -1 };
-            var flags2 = new int[4] { -1, -1, -1, -1 };
-            int[] result = new int[] { 0, 0, 0, 0 };
-            /// Add 10 points for each right color/right position
+            var flags1 = new int[pegs];
+            var flags2 = new int[pegs];
+            int[] result = new int[pegs];
+            for (var i = 0; i < pegs; ++i)
+            {
+                flags1[i] = flags2[i] = -1;
+                result[i] = 0;
+            }
+                /// Add 10 points for each right color/right position
             for (var i = 0; i < puzzle.Length; ++i)
             {
                 if (puzzle[i] == code[i])
@@ -107,9 +115,15 @@ namespace Genetic_Algorithm
         {
             var score = 0;
             var count = 0;
-            var result = new int[4] { 0, 0, 0, 0 };
-            var flags1 = new int[4] { -1, -1, -1, -1 };
-            var flags2 = new int[4] { -1, -1, -1, -1 };
+            var flags1 = new int[pegs];
+            var flags2 = new int[pegs];
+            int[] result = new int[pegs];
+
+            for (var i = 0; i < pegs; ++i)
+            {
+                flags1[i] = flags2[i] = -1;
+                result[i] = 0;
+            }
 
             for (var i = 0; i < puzzle.Length; ++i)
             {
@@ -224,7 +238,6 @@ namespace Genetic_Algorithm
             population.Sort((x, y) => y.fitness.CompareTo(x.fitness));
             if (population.Count > popSize)
                 population.RemoveRange(popSize - 1, population.Count - popSize);
-            Gene test = population.Find(x => x.value.Equals("7482"));
             code = population[0].value;
 
             return code;
@@ -249,7 +262,6 @@ namespace Genetic_Algorithm
             }
 
             pop.Sort((x, y) => y.fitness.CompareTo(x.fitness));
-            double test = puzzleBoard.fitnessFromPrior(new Gene("6665"));
             pop = generation(pop);
 
             return pop;
@@ -281,10 +293,12 @@ namespace Genetic_Algorithm
         private List<Gene> select(List<Gene> pop, ref List<string> codes)
         {
             var selected = new List<Gene>();
-            var chance = new List<List<object>>();
             var rand = new Random();
+#if FITNESS_PROP_SELECTION || RANK_SELECTION
+            var chance = new List<List<object>>();
+#endif            
+#if FITNESS_PROP_SELECTION
             var totalFitness = 0.0;
-
             foreach (var g in pop)
             {
                 totalFitness += g.fitness;
@@ -295,22 +309,66 @@ namespace Genetic_Algorithm
                 var prob = g.fitness / totalFitness;
                 chance.Add(new List<object>() {prob, g});
             }
-
+#endif
+#if RANK_SELECTION
+            pop.Sort((x, y) => y.fitness.CompareTo(x.fitness));
+            for(var i = 0; i< pop.Count; ++i)
+            {
+                double n = pop.Count - i - 1;
+                chance.Add(new List<object>() {n/pop.Count, pop[i]});
+            }
+#endif
+#if TOURNAMENT_SELECTION
+            var g1 = pop[rand.Next(pop.Count - 1)];
+            var g2 = pop[rand.Next(pop.Count - 1)];
+#endif
             var nSelected = 0;
             while (nSelected < toSelect)
             {
+#if TOURNAMENT_SELECTION
+                while (g1.value == g2.value)
+                {
+                    g1 = pop[rand.Next(pop.Count - 1)];
+                    g2 = pop[rand.Next(pop.Count - 1)];
+                }
+                while (codes.Contains(g1.value))
+                {
+                    g1 = pop[rand.Next(pop.Count - 1)];
+                }
+                while (codes.Contains(g2.value))
+                {
+                    g2 = pop[rand.Next(pop.Count - 1)];
+                }
+                if (g1.fitness > g2.fitness)
+                {
+                    selected.Add(g1);
+                    g1 = pop[rand.Next(pop.Count - 1)];
+                    g2 = pop[rand.Next(pop.Count - 1)];
+                    nSelected++;
+                }
+                else
+                {
+                    selected.Add(g2);
+                    g1 = pop[rand.Next(pop.Count - 1)];
+                    g2 = pop[rand.Next(pop.Count - 1)];
+                    nSelected++;
+                }
+#endif
+#if FITNESS_PROP_SELECTION || RANK_SELECTION
                 foreach (var g in chance)
                 {
                     var nextRand = rand.NextDouble();
-                    if (nextRand <= (double)g[0])
+                    if (nextRand <= (double)g[0] && !codes.Contains(((Gene)g[1]).value))
                     {
                         selected.Add((Gene)g[1]);
                         codes.Add(selected[selected.Count - 1].value);
                         nSelected++;
+                        if (nSelected == 650)
+                            break;
                     }
                 }
+#endif
             }
-
             return selected;
         }
 
@@ -383,10 +441,12 @@ namespace Genetic_Algorithm
                 var offspring = parent1[i].Crossover(parent2[i]);
                 foreach (var c in offspring)
                 {
-                    while (codes.Contains(c.value))
-                    {
-                        c.value = puzzleBoard.generateCodes();
-                    }
+                    //Suggestion from Berghmann (et. all) to add a unique code in the
+                    //event a child is already present in the population
+                    //while (codes.Contains(c.value))
+                    //{
+                    //    c.value = puzzleBoard.generateCodes();
+                    //}
                     c.fitness = puzzleBoard.fitnessFromPrior(c);
                     codes.Add(c.value);
                 }
@@ -427,9 +487,9 @@ namespace Genetic_Algorithm
         public List<Gene> Crossover(Gene parent2)
         {
             var p1a = this.value.Substring(0, value.Length - crossover);
-            var p1b = this.value.Substring(value.Length - crossover, value.Length - crossover);
+            var p1b = this.value.Substring(value.Length - crossover, value.Length - p1a.Length);
             var p2a = parent2.value.Substring(0, value.Length - crossover);
-            var p2b = parent2.value.Substring(value.Length - crossover, value.Length - crossover);
+            var p2b = parent2.value.Substring(value.Length - crossover, value.Length - p2a.Length);
             var child1 = new Gene(p1a + p2b);
             var child2 = new Gene(p2a + p1b);
 
